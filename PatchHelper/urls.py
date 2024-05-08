@@ -16,8 +16,14 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import include, path
+from rest_framework import routers
+
+from patcher import views
+
+router = routers.DefaultRouter()
+router.register(r'patches', views.PatchView, 'patch')
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('', include('patcher.urls'))
+    path('api/', include(router.urls))
 ]

@@ -4,7 +4,6 @@ from patcher import views
 
 urlpatterns = [
     path('patches/', views.PatchList.as_view()),
-    path('patches/<int:pk>/', views.PatchDetail.as_view()),
 ]
 
 urlpatterns = format_suffix_patterns(urlpatterns)

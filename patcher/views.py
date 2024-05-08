@@ -1,11 +1,8 @@
-from rest_framework import generics
+from django.shortcuts import render
+from rest_framework import viewsets
 from .models import Patch
 from .serializers import PatchSerializer
 
-class PatchList(generics.ListCreateAPIView):
-    queryset = Patch.objects.all()
-    serializer_class = PatchSerializer
-
-class PatchDetail(generics.RetrieveUpdateDestroyAPIView):
+class PatchView(viewsets.ModelViewSet):
     queryset = Patch.objects.all()
     serializer_class = PatchSerializer
