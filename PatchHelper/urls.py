@@ -15,15 +15,13 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import include, path
-from rest_framework import routers
+from django.urls import path, include
 
 from patcher import views
 
-router = routers.DefaultRouter()
-router.register(r'patches', views.PatchView, 'patch')
-
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/', include(router.urls))
+    path('api/', include('patcher.urls')),
+    path('', views.index, name='index'),  # Serve React frontend
+    path('posts/', views.index, name='index')
 ]

@@ -1,13 +1,13 @@
 from rest_framework import serializers
-from .models import Patch
+from .models import Post
 
-class PatchSerializer(serializers.ModelSerializer):
+class PostSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Patch
+        model = Post
         fields = (
             'id', 
             'title', 
             'description',
-            'owner',
-            'created'
+            'created',
+            'content',
         )

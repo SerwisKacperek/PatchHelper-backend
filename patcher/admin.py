@@ -1,9 +1,9 @@
 from django.contrib import admin
-from .models import Patch
+from .models import Post
 
-class PatchAdmin(admin.ModelAdmin):
-    list_display = ('title', 'owner', 'created')
+class PostAdmin(admin.ModelAdmin):
+    list_display = ('title', 'created')
     list_filter = ['created']
     search_fields = ['title']
 
-admin.site.register(Patch, PatchAdmin)
+admin.site.register(Post, PostAdmin)

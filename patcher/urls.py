@@ -1,9 +1,10 @@
-from django.urls import path
-from rest_framework.urlpatterns import format_suffix_patterns
-from patcher import views
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from .views import PostViewSet
+
+router = DefaultRouter()
+router.register(r'posts', PostViewSet)
 
 urlpatterns = [
-    path('patches/', views.PatchList.as_view()),
+    path('', include(router.urls)),
 ]
-
-urlpatterns = format_suffix_patterns(urlpatterns)
