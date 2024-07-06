@@ -23,5 +23,5 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('patcher.urls')),
     path('', views.index, name='index'),  # Serve React frontend
-    path('posts/', views.index, name='index')
+    path('patches/', views.index, name='index')
 ]

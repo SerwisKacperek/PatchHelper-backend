@@ -13,6 +13,19 @@ class Post(models.Model):
     def __str__(self):
         return self.title
 
+class LandingPageStat(models.Model):
+    value = models.IntegerField()
+    description = models.CharField(max_length=100, blank=True, default='')
+
+    class Meta:
+        ordering = ['description']
+
+    def __str__(self):
+        return self.description
+    
+    def __int__(self):
+        return self.value
+
 class TextFieldComponent(models.Model):
     post = models.ForeignKey(Post, related_name='textfield', on_delete=models.CASCADE)
     text = models.TextField()
