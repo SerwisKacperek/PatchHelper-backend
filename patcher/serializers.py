@@ -1,10 +1,12 @@
 from rest_framework import serializers
-from .models import Post
+from .models import Patch
 from .models import LandingPageStat
 
-class PostSerializer(serializers.ModelSerializer):
+class PatchSerializer(serializers.ModelSerializer):
+    creator_username = serializers.ReadOnlyField(source='creator.username')
+
     class Meta:
-        model = Post
+        model = Patch
         fields = '__all__'
 
 class LandingPageStatSerializer(serializers.ModelSerializer):

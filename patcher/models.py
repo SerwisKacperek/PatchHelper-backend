@@ -1,11 +1,19 @@
 from django.db import models
-from jsonfield import JSONField
+from django.db.models import JSONField
+from django.contrib.auth.models import User
 
-class Post(models.Model):
-    title = models.CharField(max_length=100, blank=True, default='')
-    description = models.TextField()
-    created = models.DateTimeField(auto_now_add=True)
+class Patch(models.Model):
+    title = models.CharField(max_length=50, blank=True, default='')
+    description = models.TextField(max_length=250, blank=True, default='')
     content = JSONField()
+    created = models.DateTimeField(auto_now_add=True)
+    updated = models.DateTimeField(auto_now=True)
+    creator = models.ForeignKey(User, on_delete=models.CASCADE)
+
+    def save(self, *args, **kwargs):
+        if not self.creator_id:
+            raise ValueError('Creator must be set')
+        super(Patch, self).save(*args, **kwargs)
 
     class Meta:
         ordering = ['created']
@@ -25,13 +33,3 @@ class LandingPageStat(models.Model):
     
     def __int__(self):
         return self.value
-
-class TextFieldComponent(models.Model):
-    post = models.ForeignKey(Post, related_name='textfield', on_delete=models.CASCADE)
-    text = models.TextField()
-
-class ImageComponent(models.Model):
-    post = models.ForeignKey(Post, related_name='imagefield', on_delete=models.CASCADE)
-    image = models.ImageField(upload_to='images/')
-    image_description = models.CharField(max_length=100, blank=True, default='')
-    alt_text = models.CharField(max_length=50, blank=True, default='')
