@@ -3,7 +3,7 @@ from django.db.models import JSONField
 from django.contrib.auth.models import User
 
 class Patch(models.Model):
-    title = models.CharField(max_length=50, blank=True, default='')
+    title = models.CharField(max_length=50, blank=True, default='', unique=True)
     description = models.TextField(max_length=250, blank=True, default='')
     content = JSONField()
     created = models.DateTimeField(auto_now_add=True)
