@@ -33,3 +33,16 @@ class LandingPageStat(models.Model):
     
     def __int__(self):
         return self.value
+
+class UserDetails(User):
+    def __str__(self):
+        return self.username
+    
+class Profile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    avatar = models.ImageField(upload_to='avatars/', null=True, blank=True, default='avatars/default.svg')
+    bio = models.TextField(max_length=250, blank=True, default='')
+    joined = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.user.username
