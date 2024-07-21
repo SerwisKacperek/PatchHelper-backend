@@ -5,13 +5,6 @@ from .models import Patch
 from .models import LandingPageStat
 from .models import Profile
 
-class PatchSerializer(serializers.ModelSerializer):
-    creator_username = serializers.ReadOnlyField(source='creator.username')
-
-    class Meta:
-        model = Patch
-        fields = '__all__'
-
 class LandingPageStatSerializer(serializers.ModelSerializer):
     class Meta:
         model = LandingPageStat
@@ -32,7 +25,12 @@ class UserSerializer(serializers.ModelSerializer):
         )
 
         return user
-
+    
+class UserDetailSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'username']
+        
 class ProfileSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='user.username', read_only=True)
     avatar = serializers.ImageField(max_length=None, use_url=True, required=False)
@@ -44,8 +42,9 @@ class ProfileSerializer(serializers.ModelSerializer):
         fields = ['id', 'username', 'avatar', 'bio', 'joined']
         read_only_fields = ['id', 'joined']
 
-    # def update(self, instance, validated_data):
-    #     instance.avatar = validated_data.get('avatar', instance.avatar)
-    #     instance.bio = validated_data.get('bio', instance.bio)
-    #     instance.save()
-    #     return instance
+class PatchSerializer(serializers.ModelSerializer):
+    user = UserDetailSerializer(read_only=True)
+
+    class Meta:
+        model = Patch
+        fields = ['title', 'description', 'content', 'created', 'updated', 'user']

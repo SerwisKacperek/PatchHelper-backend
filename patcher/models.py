@@ -8,10 +8,10 @@ class Patch(models.Model):
     content = JSONField()
     created = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(auto_now=True)
-    creator = models.ForeignKey(User, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
 
     def save(self, *args, **kwargs):
-        if not self.creator_id:
+        if not self.user:
             raise ValueError('Creator must be set')
         super(Patch, self).save(*args, **kwargs)
 
@@ -33,16 +33,20 @@ class LandingPageStat(models.Model):
     
     def __int__(self):
         return self.value
-
-class UserDetails(User):
-    def __str__(self):
-        return self.username
     
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     avatar = models.ImageField(upload_to='avatars/', null=True, blank=True, default='avatars/default.svg')
-    bio = models.TextField(max_length=250, blank=True, default='')
+    bio = models.TextField(max_length=250, blank=True)
     joined = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return self.user.username
+    
+    def get_default_bio(self):
+        return f"We don't know much about them, but we're sure {self.user.username} is great."
+    
+    def save(self, *args, **kwargs):
+        if not self.bio:
+            self.bio = self.get_default_bio()
+        super(Profile, self).save(*args, **kwargs)

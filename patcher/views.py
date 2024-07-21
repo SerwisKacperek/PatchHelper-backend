@@ -4,7 +4,7 @@ from django.contrib.auth.models import User
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework import generics, status
 from rest_framework.views import APIView
-from rest_framework.viewsets import ModelViewSet
+from rest_framework.viewsets import ReadOnlyModelViewSet
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -16,9 +16,8 @@ from .models import Profile
 from .serializers import PatchSerializer
 from .serializers import LandingPageStatSerializer
 from .serializers import UserSerializer
+from .serializers import UserDetailSerializer
 from .serializers import ProfileSerializer
-
-from .forms import PatchForm
 
 import logging
 logger = logging.getLogger(__name__)
@@ -49,6 +48,11 @@ class LandingPageStatViewSet(generics.ListAPIView):
 class UserCreate(generics.CreateAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
+
+class UserViewset(generics.RetrieveAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserDetailSerializer
+    lookup_field = 'id'
 
 class CurrentProfileDetail(generics.RetrieveUpdateAPIView):
     queryset = Profile.objects.all()
