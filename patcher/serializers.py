@@ -47,4 +47,5 @@ class PatchSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Patch
-        fields = ['title', 'description', 'content', 'created', 'updated', 'user']
+        fields = ['title', 'description', 'version', 'content', 'updated', 'created', 'user']
+        read_only_fields = ['created', 'user']

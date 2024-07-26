@@ -4,6 +4,7 @@ from django.contrib.auth.models import User
 
 class Patch(models.Model):
     title = models.CharField(max_length=50, blank=True, default='', unique=True)
+    version = models.CharField(max_length=10, blank=True, default='')
     description = models.TextField(max_length=250, blank=True, default='')
     content = JSONField()
     created = models.DateTimeField(auto_now_add=True)

@@ -36,6 +36,13 @@ class PatchViewSet(generics.ListAPIView):
     queryset = Patch.objects.all().order_by('created')
     serializer_class = PatchSerializer
 
+class PatchCreate(generics.CreateAPIView):
+    queryset = Patch.objects.all()
+    serializer_class = PatchSerializer
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
 class PatchDetail(generics.RetrieveAPIView):
     queryset = Patch.objects.all()
     serializer_class = PatchSerializer
@@ -53,6 +60,14 @@ class UserViewset(generics.RetrieveAPIView):
     queryset = User.objects.all()
     serializer_class = UserDetailSerializer
     lookup_field = 'id'
+
+class CurrentUserDetail(generics.RetrieveUpdateAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserDetailSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        return self.request.user 
 
 class CurrentProfileDetail(generics.RetrieveUpdateAPIView):
     queryset = Profile.objects.all()
