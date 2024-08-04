@@ -1,12 +1,11 @@
 from django.db import models
-from django.db.models import JSONField
+from django.contrib.postgres.fields import ArrayField
 from django.contrib.auth.models import User
 
 class Patch(models.Model):
     title = models.CharField(max_length=50, blank=True, default='', unique=True)
     version = models.CharField(max_length=10, blank=True, default='')
     description = models.TextField(max_length=250, blank=True, default='')
-    content = JSONField()
     created = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(auto_now=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -21,6 +20,13 @@ class Patch(models.Model):
 
     def __str__(self):
         return self.title
+
+class PatchContent(models.Model):
+    post = models.ForeignKey(Patch, related_name='content', on_delete=models.CASCADE)
+    type = models.TextField(max_length=15, blank=True, default='textField')
+    text = models.TextField(max_length=500, blank=True, null=True, default='')
+    images = ArrayField(models.ImageField(upload_to='images/'), blank=True, null=True, default=list)
+    order = models.IntegerField()
 
 class LandingPageStat(models.Model):
     value = models.IntegerField()

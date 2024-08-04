@@ -2,6 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth.models import User
 
 from .models import Patch
+from .models import PatchContent
 from .models import LandingPageStat
 from .models import Profile
 
@@ -42,10 +43,27 @@ class ProfileSerializer(serializers.ModelSerializer):
         fields = ['id', 'username', 'avatar', 'bio', 'joined']
         read_only_fields = ['id', 'joined']
 
+class PatchContentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PatchContent
+        fields = ['id', 'type', 'text', 'images', 'order']
+
 class PatchSerializer(serializers.ModelSerializer):
     user = UserDetailSerializer(read_only=True)
 
     class Meta:
         model = Patch
-        fields = ['title', 'description', 'version', 'content', 'updated', 'created', 'user']
+        fields = ['title', 'description', 'version', 'updated', 'created', 'user']
         read_only_fields = ['created', 'user']
+    
+    def create(self, validated_data):
+        print(self.initial_data)
+        print(validated_data)
+        content_data = self.initial_data.pop('content')
+        print("chyba ze tu")
+        patch = Patch.objects.create(**validated_data)
+        print("no albo tu")
+        for content in content_data:
+            print("TUTAJ?")
+            PatchContent.objects.create(post=patch, **content)
+        return patch

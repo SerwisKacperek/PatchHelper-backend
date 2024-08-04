@@ -5,6 +5,7 @@ from rest_framework_simplejwt.views import (
 )
 
 from .views import PatchViewSet
+from .views import PatchContentViewSet
 from .views import LandingPageStatViewSet
 from .views import PatchCreate
 from .views import PatchDetail
@@ -21,6 +22,8 @@ urlpatterns = [
     path('patches/', PatchViewSet.as_view(), name='patch-list'),
     path('patches/new/', PatchCreate.as_view(), name='new-patch'),
     path('patches/<str:title>/', PatchDetail.as_view(), name='patch-detail'),
+    path('patchContent/', PatchContentViewSet.as_view(), name='patch-content'),
+    
     path('LandingPageStat/', LandingPageStatViewSet.as_view(), name='landing-page-stat'),
 
     path('users/', UserViewset.as_view(), name='user-create'),

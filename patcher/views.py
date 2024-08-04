@@ -10,10 +10,12 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 
 from .models import Patch
+from .models import PatchContent
 from .models import LandingPageStat
 from .models import Profile
 
 from .serializers import PatchSerializer
+from .serializers import PatchContentSerializer
 from .serializers import LandingPageStatSerializer
 from .serializers import UserSerializer
 from .serializers import UserDetailSerializer
@@ -42,6 +44,10 @@ class PatchCreate(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
+
+class PatchContentViewSet(generics.ListAPIView):
+    queryset = PatchContent.objects.all()
+    serializer_class = PatchContentSerializer
 
 class PatchDetail(generics.RetrieveAPIView):
     queryset = Patch.objects.all()
