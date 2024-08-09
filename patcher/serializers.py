@@ -57,13 +57,8 @@ class PatchSerializer(serializers.ModelSerializer):
         read_only_fields = ['created', 'user']
     
     def create(self, validated_data):
-        print(self.initial_data)
-        print(validated_data)
         content_data = self.initial_data.pop('content')
-        print("chyba ze tu")
         patch = Patch.objects.create(**validated_data)
-        print("no albo tu")
         for content in content_data:
-            print("TUTAJ?")
             PatchContent.objects.create(post=patch, **content)
         return patch

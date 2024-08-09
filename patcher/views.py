@@ -1,4 +1,4 @@
-from django.shortcuts import render
+from django.shortcuts import render, get_list_or_404
 from django.contrib.auth.models import User
 
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -8,6 +8,7 @@ from rest_framework.viewsets import ReadOnlyModelViewSet
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
+from .pagination import PatchPagination
 
 from .models import Patch
 from .models import PatchContent
@@ -37,6 +38,7 @@ class LogoutView(APIView):
 class PatchViewSet(generics.ListAPIView):
     queryset = Patch.objects.all().order_by('created')
     serializer_class = PatchSerializer
+    pagination_class = PatchPagination
 
 class PatchCreate(generics.CreateAPIView):
     queryset = Patch.objects.all()
@@ -48,6 +50,16 @@ class PatchCreate(generics.CreateAPIView):
 class PatchContentViewSet(generics.ListAPIView):
     queryset = PatchContent.objects.all()
     serializer_class = PatchContentSerializer
+
+    def get_queryset(self):
+        title = self.kwargs['title']
+        patch = get_list_or_404(Patch, title=title)
+        return PatchContent.objects.filter(post=patch[0])
+    
+    def get(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+        serializer = PatchContentSerializer(queryset, many=True)
+        return Response(serializer.data)
 
 class PatchDetail(generics.RetrieveAPIView):
     queryset = Patch.objects.all()
@@ -81,12 +93,14 @@ class CurrentProfileDetail(generics.RetrieveUpdateAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_object(self):
+        if not self.request.user.is_authenticated:
+            return Response(status=status.HTTP_401_UNAUTHORIZED)
+        
         return self.request.user.profile
     
 class ProfileDetail(generics.RetrieveUpdateAPIView):
     queryset = Profile.objects.all()
     serializer_class = ProfileSerializer
-    permission_classes = [IsAuthenticated]
     lookup_field = "id"
     
     @action(detail=False, methods=['get'])
