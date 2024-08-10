@@ -5,7 +5,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework import generics, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.filters import OrderingFilter
 from .pagination import PatchPagination
@@ -116,3 +116,16 @@ def index(request):
 
 def patch_detail(request, title=None):
     return render(request, 'index.html', {'title': title})
+
+@api_view(['POST'])
+def upvote_post(request, patch_id):
+    if not request.user.is_authenticated:
+        return Response(status=status.HTTP_403_FORBIDDEN)
+    
+    post = Patch.objects.get(id=patch_id)
+    user = request.user
+
+    if post.upvote(user):
+        return Response(PatchSerializer(post).data, status=status.HTTP_200_OK)
+    else:
+        return Response({'detail': 'Already upvoted'}, status=status.HTTP_400_BAD_REQUEST)

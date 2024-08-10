@@ -53,7 +53,7 @@ class PatchSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Patch
-        fields = ['title', 'description', 'version', 'updated', 'created', 'user', 'upvotes']
+        fields = ['id','title', 'description', 'version', 'updated', 'created', 'user', 'upvotes']
         read_only_fields = ['created', 'user']
     
     def create(self, validated_data):

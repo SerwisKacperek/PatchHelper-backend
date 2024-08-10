@@ -10,7 +10,14 @@ class Patch(models.Model):
     updated = models.DateTimeField(auto_now=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     upvotes = models.IntegerField(default=0)
+    upvoted_by = models.ManyToManyField(User, related_name='upvoted_patches', blank=True)
 
+    class Meta:
+        ordering = ['created']
+
+    def __str__(self):
+        return self.title
+    
     def save(self, *args, **kwargs):
         if not self.user:
             raise ValueError('Creator must be set')
@@ -19,11 +26,13 @@ class Patch(models.Model):
         
         super(Patch, self).save(*args, **kwargs)
 
-    class Meta:
-        ordering = ['created']
-
-    def __str__(self):
-        return self.title
+    def upvote(self, user):
+        if not self.upvoted_by.filter(id=user.id).exists():
+            self.upvoted_by.add(user)
+            self.upvotes += 1
+            self.save()
+            return True
+        return False
 
 class PatchContent(models.Model):
     post = models.ForeignKey(Patch, related_name='content', on_delete=models.CASCADE)

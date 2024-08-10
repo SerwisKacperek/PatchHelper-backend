@@ -9,7 +9,7 @@ from .views import PatchContentViewSet
 from .views import LandingPageStatViewSet
 from .views import PatchCreate
 from .views import PatchDetail
-
+from .views import upvote_post
 
 from .views import UserCreate
 from .views import LogoutView
@@ -23,6 +23,7 @@ urlpatterns = [
     path('patches/new/', PatchCreate.as_view(), name='new-patch'),
     path('patches/<str:title>/', PatchDetail.as_view(), name='patch-detail'),
     path('patches/<str:title>/content', PatchContentViewSet.as_view(), name='patch-content'),
+    path('patches/<int:patch_id>/upvote/', upvote_post, name='upvote_post'),
     
     path('LandingPageStat/', LandingPageStatViewSet.as_view(), name='landing-page-stat'),
 
