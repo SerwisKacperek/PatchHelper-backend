@@ -4,10 +4,10 @@ from django.contrib.auth.models import User
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework import generics, status
 from rest_framework.views import APIView
-from rest_framework.viewsets import ReadOnlyModelViewSet
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.filters import OrderingFilter
 from .pagination import PatchPagination
 
 from .models import Patch
@@ -36,9 +36,11 @@ class LogoutView(APIView):
             return Response(status=status.HTTP_400_BAD_REQUEST)
 
 class PatchViewSet(generics.ListAPIView):
-    queryset = Patch.objects.all().order_by('created')
+    queryset = Patch.objects.all()
     serializer_class = PatchSerializer
     pagination_class = PatchPagination
+
+    filter_backends = [OrderingFilter]
 
 class PatchCreate(generics.CreateAPIView):
     queryset = Patch.objects.all()

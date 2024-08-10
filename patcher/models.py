@@ -9,10 +9,14 @@ class Patch(models.Model):
     created = models.DateTimeField(auto_now_add=True)
     updated = models.DateTimeField(auto_now=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
+    upvotes = models.IntegerField(default=0)
 
     def save(self, *args, **kwargs):
         if not self.user:
             raise ValueError('Creator must be set')
+        if not self.upvotes:
+            self.upvotes = 0
+        
         super(Patch, self).save(*args, **kwargs)
 
     class Meta:
