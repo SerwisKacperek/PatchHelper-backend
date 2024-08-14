@@ -6,8 +6,9 @@ from rest_framework import generics, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.decorators import action, api_view
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.filters import OrderingFilter
+from django_filters.rest_framework import DjangoFilterBackend
 from .pagination import PatchPagination
 
 from .models import Patch
@@ -41,6 +42,29 @@ class PatchViewSet(generics.ListAPIView):
     pagination_class = PatchPagination
 
     filter_backends = [OrderingFilter]
+
+class UserPatchViewSet(generics.ListAPIView):
+    queryset = Patch.objects.all()
+    serializer_class = PatchSerializer
+    pagination_class = PatchPagination
+
+    filter_backends = [OrderingFilter]
+    
+    def get(self, request):
+        id = request.query_params.get('user_id')
+        if id:
+            posts = Patch.objects.filter(user_id=id)
+        else:
+            # the user is not authenticated
+            if not self.request.user.is_authenticated:
+                return Response(status=status.HTTP_403_FORBIDDEN)
+            
+            posts = Patch.objects.filter(user=request.user)
+
+        paginator = PatchPagination()
+        serializer = PatchSerializer(posts, many=True)
+        page = paginator.paginate_queryset(posts, request)
+        return paginator.get_paginated_response(data=serializer.data)
 
 class PatchCreate(generics.CreateAPIView):
     queryset = Patch.objects.all()
@@ -76,18 +100,27 @@ class UserCreate(generics.CreateAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
 
-class UserViewset(generics.RetrieveAPIView):
+class UserViewset(generics.ListAPIView):
     queryset = User.objects.all()
     serializer_class = UserDetailSerializer
     lookup_field = 'id'
 
-class CurrentUserDetail(generics.RetrieveUpdateAPIView):
-    queryset = User.objects.all()
-    serializer_class = UserDetailSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes_by_action = {'get': [AllowAny]}
 
-    def get_object(self):
-        return self.request.user 
+    def get(self, request):
+        id = request.query_params.get('user_id')
+        
+        if id:
+            user = User.objects.get(id=id)
+            serializer = UserDetailSerializer(user)
+            return Response(serializer.data)
+        else: # if user_id was not specified, return the current user
+            if not self.request.user.is_authenticated:
+                return Response(status=status.HTTP_403_FORBIDDEN)
+            
+            user = User.objects.get(id=request.user.id)
+            serializer = UserDetailSerializer(user)
+            return Response(serializer.data)
 
 class CurrentProfileDetail(generics.RetrieveUpdateAPIView):
     queryset = Profile.objects.all()
@@ -96,7 +129,7 @@ class CurrentProfileDetail(generics.RetrieveUpdateAPIView):
 
     def get_object(self):
         if not self.request.user.is_authenticated:
-            return Response(status=status.HTTP_401_UNAUTHORIZED)
+            return Response(status=status.HTTP_403_FORBIDDEN)
         
         return self.request.user.profile
     
