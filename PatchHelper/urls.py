@@ -28,7 +28,7 @@ urlpatterns = [
     path('api/', include('patcher.urls')),
     path('', views.index, name='index'),  # Serve React frontend
     path('patches/', views.index, name='patches'),
-    path('patches/<str:title>/', views.patch_detail, name='patches'),
+    path('patches/<uuid:uuid>/', views.patch_detail, name='patches'),
     path('profile/me', views.CurrentProfileDetail.as_view(), name='profile-detail'),
     path('profile/<int:id>', views.ProfileDetail.as_view(), name='profile-detail'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

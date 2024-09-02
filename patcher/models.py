@@ -1,9 +1,12 @@
+import uuid
 from django.db import models
 from django.contrib.postgres.fields import ArrayField
 from django.contrib.auth.models import User
 
 class Patch(models.Model):
-    title = models.CharField(max_length=50, blank=True, default='', unique=True)
+    uuid = models.UUIDField(primary_key=True, editable=False, default=uuid.uuid4)
+    title = models.CharField(max_length=50, blank=True, default='', unique=False)
+    thumbnail = models.ImageField(upload_to="thumbnails/", null=True, blank=True)
     version = models.CharField(max_length=10, blank=True, default='')
     description = models.TextField(max_length=250, blank=True, default='')
     created = models.DateTimeField(auto_now_add=True)
@@ -11,6 +14,14 @@ class Patch(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     upvotes = models.IntegerField(default=0)
     upvoted_by = models.ManyToManyField(User, related_name='upvoted_patches', blank=True)
+
+    STATE_CHOICES = [
+        ('draft', 'Draft'),
+        ('published', 'Published'),
+        ('hidden', 'Hidden')
+    ]
+
+    state = models.CharField(max_length=10, choices=STATE_CHOICES, default='draft')
 
     class Meta:
         ordering = ['created']

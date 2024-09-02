@@ -22,9 +22,9 @@ urlpatterns = [
     path('patches/', PatchViewSet.as_view(), name='patch-list'),
     path('patches/new/', PatchCreate.as_view(), name='new-patch'),
     path('patches/user/', UserPatchViewSet.as_view(), name='user-patches'),
-    path('patches/<str:title>/', PatchDetail.as_view(), name='patch-detail'),
-    path('patches/<str:title>/content', PatchContentViewSet.as_view(), name='patch-content'),
-    path('patches/<int:patch_id>/upvote/', upvote_post, name='upvote_post'),
+    path('patches/<uuid:uuid>/', PatchDetail.as_view(), name='patch-detail'),
+    path('patches/<uuid:uuid>/content', PatchContentViewSet.as_view(), name='patch-content'),
+    path('patches/<uuid:uuid>/upvote/', upvote_post, name='upvote_post'),
     
     path('LandingPageStat/', LandingPageStatViewSet.as_view(), name='landing-page-stat'),
 

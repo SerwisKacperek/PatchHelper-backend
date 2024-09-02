@@ -70,6 +70,20 @@ class PatchCreate(generics.CreateAPIView):
     queryset = Patch.objects.all()
     serializer_class = PatchSerializer
 
+    def post(self, request, *args, **kwargs):
+        serializer = PatchSerializer(data=request.data)
+        
+        if serializer.is_valid():
+            del serializer.validated_data['upvoted_by']
+            serializer.validated_data['user'] = request.user
+
+            serializer.save()
+
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        else:
+            logger.error(f'Validation errors: {serializer.errors}')
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
@@ -78,8 +92,8 @@ class PatchContentViewSet(generics.ListAPIView):
     serializer_class = PatchContentSerializer
 
     def get_queryset(self):
-        title = self.kwargs['title']
-        patch = get_list_or_404(Patch, title=title)
+        patch_uuid = self.kwargs['uuid']
+        patch = get_list_or_404(Patch, uuid=patch_uuid)
         return PatchContent.objects.filter(post=patch[0])
     
     def get(self, request, *args, **kwargs):
@@ -90,7 +104,7 @@ class PatchContentViewSet(generics.ListAPIView):
 class PatchDetail(generics.RetrieveAPIView):
     queryset = Patch.objects.all()
     serializer_class = PatchSerializer
-    lookup_field = 'title'
+    lookup_field = 'uuid'
 
 class LandingPageStatViewSet(generics.ListAPIView):
     queryset = LandingPageStat.objects.all()
@@ -151,11 +165,11 @@ def patch_detail(request, title=None):
     return render(request, 'index.html', {'title': title})
 
 @api_view(['POST'])
-def upvote_post(request, patch_id):
+def upvote_post(request, uuid):
     if not request.user.is_authenticated:
         return Response(status=status.HTTP_403_FORBIDDEN)
     
-    post = Patch.objects.get(id=patch_id)
+    post = Patch.objects.get(uuid=uuid)
     user = request.user
 
     if post.upvote(user):

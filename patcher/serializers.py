@@ -1,10 +1,15 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
+from django.http import QueryDict
+import json
 
 from .models import Patch
 from .models import PatchContent
 from .models import LandingPageStat
 from .models import Profile
+
+import logging
+logger = logging.getLogger(__name__)
 
 class LandingPageStatSerializer(serializers.ModelSerializer):
     class Meta:
@@ -46,19 +51,30 @@ class ProfileSerializer(serializers.ModelSerializer):
 class PatchContentSerializer(serializers.ModelSerializer):
     class Meta:
         model = PatchContent
-        fields = ['id', 'type', 'text', 'images', 'order']
+        fields = "__all__"
 
 class PatchSerializer(serializers.ModelSerializer):
     user = UserDetailSerializer(read_only=True)
 
     class Meta:
         model = Patch
-        fields = ['id','title', 'description', 'version', 'updated', 'created', 'user', 'upvotes']
-        read_only_fields = ['created', 'user']
-    
+        fields = "__all__"
+        read_only_fields = ['created', 'user', 'uuid']
+
     def create(self, validated_data):
-        content_data = self.initial_data.pop('content')
         patch = Patch.objects.create(**validated_data)
+        content_data = json.loads(self.initial_data.get('content'))
+
         for content in content_data:
-            PatchContent.objects.create(post=patch, **content)
+            content["post"] = patch.uuid
+            content = PatchContentSerializer(data=content)
+
+            if content.is_valid():
+                content.save()
+            else:
+                logger.error(f'Validation errors: {content.errors}, {content.initial_data}')
+                raise serializers.ValidationError(content.errors)
+        
+
         return patch
+
