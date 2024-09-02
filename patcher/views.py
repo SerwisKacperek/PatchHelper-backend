@@ -49,22 +49,41 @@ class UserPatchViewSet(generics.ListAPIView):
     pagination_class = PatchPagination
 
     filter_backends = [OrderingFilter]
-    
+    ordering_fields = ['created', 'upvotes', 'updated_at']
+    ordering = ['-created']  
+
+
     def get(self, request):
-        id = request.query_params.get('user_id')
+        id = self.request.query_params.get('user_id')
+        ordering = self.request.query_params.get('ordering', None)
+
+        # Filetering the queryset based on the user_id
         if id:
-            posts = Patch.objects.filter(user_id=id)
+            self.queryset = self.queryset.filter(user__id=id)
         else:
             # the user is not authenticated
             if not self.request.user.is_authenticated:
-                return Response(status=status.HTTP_403_FORBIDDEN)
+                return Response(status=status.HTTP_401_UNAUTHORIZED)
             
-            posts = Patch.objects.filter(user=request.user)
+            self.queryset = self.queryset.filter(user=request.user)
 
-        paginator = PatchPagination()
-        serializer = PatchSerializer(posts, many=True)
-        page = paginator.paginate_queryset(posts, request)
-        return paginator.get_paginated_response(data=serializer.data)
+        # Ordering the queryset
+        if ordering:
+            # Apply ordering if specified
+            self.queryset = self.queryset.order_by(*ordering.split(','))
+        else:
+            # Default ordering
+            self.queryset = self.queryset.order_by(self.ordering)
+
+        # Paginate the queryset
+        page = self.paginate_queryset(self.queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        
+        # If pagination is not applied
+        serializer = self.get_serializer(self.queryset, many=True)
+        return Response(serializer.data)
 
 class PatchCreate(generics.CreateAPIView):
     queryset = Patch.objects.all()
@@ -101,7 +120,7 @@ class PatchContentViewSet(generics.ListAPIView):
         serializer = PatchContentSerializer(queryset, many=True)
         return Response(serializer.data)
 
-class PatchDetail(generics.RetrieveAPIView):
+class PatchDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = Patch.objects.all()
     serializer_class = PatchSerializer
     lookup_field = 'uuid'
