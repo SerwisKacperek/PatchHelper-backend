@@ -62,8 +62,14 @@ class PatchSerializer(serializers.ModelSerializer):
         read_only_fields = ['created', 'user', 'uuid']
 
     def create(self, validated_data):
+        try:
+            content_data = json.loads(self.initial_data.get('content'))
+        except json.JSONDecodeError:
+            raise serializers.ValidationError("Content's JSON is invalid", code='invalid')
+        except TypeError:
+            raise serializers.ValidationError("Content must be a JSON array", code='invalid')
+        
         patch = Patch.objects.create(**validated_data)
-        content_data = json.loads(self.initial_data.get('content'))
 
         for content in content_data:
             content["post"] = patch.uuid
@@ -72,6 +78,7 @@ class PatchSerializer(serializers.ModelSerializer):
             if content.is_valid():
                 content.save()
             else:
+                patch.delete()
                 logger.error(f'Validation errors: {content.errors}, {content.initial_data}')
                 raise serializers.ValidationError(content.errors)
         

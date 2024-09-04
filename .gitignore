@@ -15,6 +15,12 @@ env/
 venv/
 .vscode/
 
+# tests
+htmlcov/
+.coverage
+pytest.ini
+.pytest_cache/
+
 frontend/
 migrations/
 media/

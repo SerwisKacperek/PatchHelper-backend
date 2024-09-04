@@ -1,5 +1,8 @@
 from django.shortcuts import render, get_list_or_404
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
+from uuid import UUID
 
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework import generics, status
@@ -7,8 +10,8 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.decorators import action, api_view
 from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.filters import OrderingFilter
-from django_filters.rest_framework import DjangoFilterBackend
 from .pagination import PatchPagination
 
 from .models import Patch
@@ -22,6 +25,8 @@ from .serializers import LandingPageStatSerializer
 from .serializers import UserSerializer
 from .serializers import UserDetailSerializer
 from .serializers import ProfileSerializer
+
+from .exceptions import InvalidUUIDException
 
 import logging
 logger = logging.getLogger(__name__)
@@ -42,6 +47,34 @@ class PatchViewSet(generics.ListAPIView):
     pagination_class = PatchPagination
 
     filter_backends = [OrderingFilter]
+    ordering_fields = ['created', 'upvotes', 'updated_at']
+    ordering = '-created'
+
+    def get_queryset(self):
+        ordering = self.request.query_params.get('ordering', None)
+
+        # Ordering the queryset
+        if ordering:
+            # Apply ordering if specified
+            queryset = self.queryset.order_by(*ordering.split(','))
+        else:
+            # Default ordering
+            queryset = self.queryset.order_by(self.ordering)
+        
+        return queryset
+    
+    def get(self, request):
+        queryset = self.get_queryset()
+
+        # Paginate the queryset
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        
+        # If pagination is not applied
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
 
 class UserPatchViewSet(generics.ListAPIView):
     queryset = Patch.objects.all()
@@ -50,39 +83,43 @@ class UserPatchViewSet(generics.ListAPIView):
 
     filter_backends = [OrderingFilter]
     ordering_fields = ['created', 'upvotes', 'updated_at']
-    ordering = ['-created']  
+    ordering = '-created' 
 
-
-    def get(self, request):
+    def get_queryset(self):
         id = self.request.query_params.get('user_id')
         ordering = self.request.query_params.get('ordering', None)
 
         # Filetering the queryset based on the user_id
         if id:
-            self.queryset = self.queryset.filter(user__id=id)
+            queryset = self.queryset.filter(user__id=id)
         else:
             # the user is not authenticated
             if not self.request.user.is_authenticated:
-                return Response(status=status.HTTP_401_UNAUTHORIZED)
+                raise PermissionDenied()
             
-            self.queryset = self.queryset.filter(user=request.user)
+            queryset = self.queryset.filter(user=self.request.user)
 
         # Ordering the queryset
         if ordering:
             # Apply ordering if specified
-            self.queryset = self.queryset.order_by(*ordering.split(','))
+            queryset = queryset.order_by(*ordering.split(','))
         else:
             # Default ordering
-            self.queryset = self.queryset.order_by(self.ordering)
+            queryset = queryset.order_by(self.ordering)
+
+        return queryset
+
+    def get(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
 
         # Paginate the queryset
-        page = self.paginate_queryset(self.queryset)
+        page = self.paginate_queryset(queryset)
         if page is not None:
             serializer = self.get_serializer(page, many=True)
             return self.get_paginated_response(serializer.data)
         
         # If pagination is not applied
-        serializer = self.get_serializer(self.queryset, many=True)
+        serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
 class PatchCreate(generics.CreateAPIView):
@@ -91,6 +128,9 @@ class PatchCreate(generics.CreateAPIView):
 
     def post(self, request, *args, **kwargs):
         serializer = PatchSerializer(data=request.data)
+
+        if not request.user.is_authenticated:
+            return Response(status=status.HTTP_401_UNAUTHORIZED)
         
         if serializer.is_valid():
             del serializer.validated_data['upvoted_by']
@@ -103,15 +143,19 @@ class PatchCreate(generics.CreateAPIView):
             logger.error(f'Validation errors: {serializer.errors}')
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
-
 class PatchContentViewSet(generics.ListAPIView):
     queryset = PatchContent.objects.all()
     serializer_class = PatchContentSerializer
 
     def get_queryset(self):
         patch_uuid = self.kwargs['uuid']
+
+        # ensure the uuid is valid
+        try:
+            patch_uuid = UUID(patch_uuid)
+        except ValueError:
+            raise InvalidUUIDException()
+        
         patch = get_list_or_404(Patch, uuid=patch_uuid)
         return PatchContent.objects.filter(post=patch[0])
     
@@ -129,11 +173,7 @@ class LandingPageStatViewSet(generics.ListAPIView):
     queryset = LandingPageStat.objects.all()
     serializer_class = LandingPageStatSerializer
 
-class UserCreate(generics.CreateAPIView):
-    queryset = User.objects.all()
-    serializer_class = UserSerializer
-
-class UserViewset(generics.ListAPIView):
+class UserViewset(generics.ListCreateAPIView):
     queryset = User.objects.all()
     serializer_class = UserDetailSerializer
     lookup_field = 'id'
@@ -154,6 +194,35 @@ class UserViewset(generics.ListAPIView):
             user = User.objects.get(id=request.user.id)
             serializer = UserDetailSerializer(user)
             return Response(serializer.data)
+        
+    def post(self, request, *args, **kwargs):
+        if request.user.is_authenticated:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+        
+        # check username length
+        elif len(request.data.get("username")) < 4:
+            return Response({'detail': 'Username must be at least 4 characters long'}, status=status.HTTP_400_BAD_REQUEST)
+        elif len(request.data.get("username")) > 25:
+            return Response({'detail': 'Username must be at most 25 characters long'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # check password length
+        elif len(request.data.get("password")) < 3:
+            return Response({'detail': 'Password must be at least 3 characters long'}, status=status.HTTP_400_BAD_REQUEST)
+        elif len(request.data.get("password")) > 20:
+            return Response({'detail': 'Password must be at most 20 characters long'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # validate email
+        try: 
+            validate_email(request.data.get("email"))
+        except ValidationError:
+            return Response({'detail': 'Invalid email'}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = UserSerializer(data=request.data)
+        if serializer.is_valid():
+            user = serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class CurrentProfileDetail(generics.RetrieveUpdateAPIView):
     queryset = Profile.objects.all()
@@ -161,9 +230,6 @@ class CurrentProfileDetail(generics.RetrieveUpdateAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_object(self):
-        if not self.request.user.is_authenticated:
-            return Response(status=status.HTTP_403_FORBIDDEN)
-        
         return self.request.user.profile
     
 class ProfileDetail(generics.RetrieveUpdateAPIView):
@@ -184,14 +250,19 @@ def patch_detail(request, title=None):
     return render(request, 'index.html', {'title': title})
 
 @api_view(['POST'])
-def upvote_post(request, uuid):
+def upvote_patch(request, uuid):
     if not request.user.is_authenticated:
         return Response(status=status.HTTP_403_FORBIDDEN)
     
-    post = Patch.objects.get(uuid=uuid)
-    user = request.user
+    try:
+        uuid = UUID(uuid)
+    except ValueError:
+        raise InvalidUUIDException()
 
-    if post.upvote(user):
-        return Response(PatchSerializer(post).data, status=status.HTTP_200_OK)
+    post = Patch.objects.get(uuid=uuid)
+    upvoted = post.upvote(request.user)
+
+    if upvoted:
+        return Response({'detail': 'Post succesfully upvoted'}, status=status.HTTP_200_OK)
     else:
         return Response({'detail': 'Already upvoted'}, status=status.HTTP_400_BAD_REQUEST)
