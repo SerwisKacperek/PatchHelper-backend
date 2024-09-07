@@ -92,25 +92,30 @@ class PatchSerializer(serializers.ModelSerializer):
         instance.state = validated_data.get('state', instance.state)
         instance.save()
 
-        try:
-            content_data = json.loads(self.initial_data.get('content'))
-        except json.JSONDecodeError:
-            raise serializers.ValidationError("Content's JSON is invalid", code='invalid')
-        except TypeError:
-            raise serializers.ValidationError("Content must be a JSON array", code='invalid')
-        
-        for content in content_data:
-            content_id = content.get('id', None)
+        if 'content' in self.initial_data:
+            try:
+                content_data = json.loads(self.initial_data.get('content'))
+            except json.JSONDecodeError:
+                raise serializers.ValidationError("Content's JSON is invalid", code='invalid')
+            except TypeError:
+                raise serializers.ValidationError("Content must be a JSON array", code='invalid')
+            
+            for content in content_data:
+                content_id = content.get('id', None)
 
-            if content_id:
-                content_instance = PatchContent.objects.get(id=content_id)
-                content_instance.type = content.get('type', content_instance.type)
-                content_instance.order = content.get('order', content_instance.order)
-                content_instance.text = content.get('text', content_instance.text)
-                content_instance.images = content.get('images', content_instance.images)
-                content_instance.save()
-            else:
-                raise serializers.ValidationError("Content ID must be provided", code='invalid')
+                if content_id:
+                    try:
+                        content_instance = PatchContent.objects.get(id=content_id)
+                    except PatchContent.DoesNotExist:
+                        raise serializers.ValidationError("Content ID does not exist", code='invalid')
+        
+                    content_instance.type = content.get('type', content_instance.type)
+                    content_instance.order = content.get('order', content_instance.order)
+                    content_instance.text = content.get('text', content_instance.text)
+                    content_instance.images = content.get('images', content_instance.images)
+                    content_instance.save()
+                else:
+                    raise serializers.ValidationError("Content ID must be provided", code='invalid')
         
         return instance
 

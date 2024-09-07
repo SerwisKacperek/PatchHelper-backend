@@ -52,15 +52,16 @@ class PatchViewSet(generics.ListAPIView):
     ordering = '-created'
 
     def get_queryset(self):
+        queryset = self.queryset.filter(state='published') # only show published patches
         ordering = self.request.query_params.get('ordering', None)
 
         # Ordering the queryset
         if ordering:
             # Apply ordering if specified
-            queryset = self.queryset.order_by(*ordering.split(','))
+            queryset = queryset.order_by(*ordering.split(','))
         else:
             # Default ordering
-            queryset = self.queryset.order_by(self.ordering)
+            queryset = queryset.order_by(self.ordering)
         
         return queryset
     

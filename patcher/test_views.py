@@ -3,10 +3,10 @@ from rest_framework.test import APIClient
 from django.urls import reverse
 
 from django.contrib.auth.models import User
-from patcher.models import Patch
+from patcher.models import Patch, PatchContent
 from patcher.serializers import PatchSerializer
 
-class PatchViewSetTest(TestCase):
+class TestPatchViewSet(TestCase):
     def setUp(self):
         self.client = APIClient()
 
@@ -23,7 +23,21 @@ class PatchViewSetTest(TestCase):
             version='1.0.0',
             description='This is a test patch',   
             user=self.user,
-            state='draft')
+            state='published')
+        self.patch3 = Patch.objects.create(
+            title='Test Patch 3',
+            version='1.0.0',
+            description='This is a draft test patch',
+            user=self.user,
+            state='draft'
+        )
+        self.patch4 = Patch.objects.create(
+            title='Test Patch 4',
+            version='1.0.0',
+            description='This is a hidden test patch',
+            user=self.user,
+            state='hidden'
+        )
         
         self.patch2.upvote(self.user)
 
@@ -55,7 +69,7 @@ class PatchViewSetTest(TestCase):
         self.assertEqual(response.data["results"][0]["title"], 'Test Patch 2')
         self.assertEqual(response.data["results"][1]["title"], 'Test Patch 1')
 
-class UserPatchViewSetTest(TestCase):
+class TestUserPatchViewSet(TestCase):
     def setUp(self):
         self.client = APIClient()
 
@@ -115,7 +129,7 @@ class UserPatchViewSetTest(TestCase):
         self.assertEqual(response.data["results"][0]["title"], 'Test Patch 2')
         self.assertEqual(response.data["results"][1]["title"], 'Test Patch 1')
 
-class PatchCreateTest(TestCase):
+class TestPatchCreate(TestCase):
     def setUp(self):
         self.client = APIClient()
 
@@ -142,7 +156,47 @@ class PatchCreateTest(TestCase):
         self.assertEqual(patch.description, 'This is a test patch')
         self.assertEqual(patch.state, 'published')
         self.assertEqual(patch.user, self.user)
+    
+    def test_create_patch_content(self):
+        self.client.force_authenticate(user=self.user)
 
+        response = self.client.post(reverse('new-patch'), {
+            'title': 'Test Patch',
+            'version': '1.0.0',
+            'description': 'This is a test patch',
+            'state': 'published',
+            'content': '[{"text": "This is a test content", "order": 1, "type": "textField"}]'
+        })
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(Patch.objects.count(), 1)
+
+        patch = Patch.objects.first()
+
+        self.assertEqual(patch.title, 'Test Patch')
+        self.assertEqual(patch.version, '1.0.0')
+        self.assertEqual(patch.description, 'This is a test patch')
+        self.assertEqual(patch.state, 'published')
+        self.assertEqual(patch.user, self.user)
+
+        self.assertEqual(patch.content.count(), 1)
+        self.assertEqual(patch.content.first().text, 'This is a test content')
+        self.assertEqual(patch.content.first().order, 1)
+        self.assertEqual(patch.content.first().type, 'textField')
+
+        # invalid content
+        self.client.force_authenticate(user=self.user)
+        response = self.client.post(reverse('new-patch'), {
+            'title': 'Test Patch',
+            'version': '1.0.0',
+            'description': 'This is a test patch',
+            'state': 'published',
+            'content': '[{"text": "abc", "order": 1, "type": "invalid-type"}]'
+        })
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(Patch.objects.count(), 1)
+    
     def test_create_patch_unauthenticated(self):
         response = self.client.post(reverse('new-patch'), {
             'title': 'Test Patch',
@@ -194,7 +248,7 @@ class PatchCreateTest(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(Patch.objects.count(), 0)
 
-class PatchContentViewSetTest(TestCase):
+class TestPatchContentViewSet(TestCase):
     def setUp(self):
         self.client = APIClient()
 
@@ -224,7 +278,7 @@ class PatchContentViewSetTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data), 0)
 
-class UserViewSetTest(TestCase):
+class TestUserViewSet(TestCase):
     def setUp(self):
         self.client = APIClient()
 
@@ -338,7 +392,7 @@ class UserViewSetTest(TestCase):
 
         self.assertEqual(response.status_code, 403)
 
-class ProfileDetailTest(TestCase):
+class TestProfileDetail(TestCase):
     def setUp(self):
         self.client = APIClient()
 
@@ -381,7 +435,7 @@ class ProfileDetailTest(TestCase):
         self.assertEqual(response.data['username'], 'testuser')
         self.assertEqual(response.data['bio'], 'This is a test bio')
 
-class UpvotePostTest(TestCase):
+class TestUpvotePost(TestCase):
     def setUp(self):
         self.client = APIClient()
 
@@ -426,3 +480,163 @@ class UpvotePostTest(TestCase):
 
         self.assertEqual(response.status_code, 404)
         self.assertEqual(self.patch.upvotes, 0)
+
+class TestPatchUpdate(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+
+        self.user = User.objects.create_user(username='testuser', password='12345')
+
+        self.patch = Patch.objects.create(
+            title='Test Patch',
+            version='1.0.0',
+            description='This is a test patch',   
+            user=self.user,
+            state='published')
+
+        self.advanced_patch = Patch.objects.create(
+            title='Advanced Patch',
+            version='1.0.0',
+            description='This is an advanced test patch',   
+            user=self.user,
+            state='published',
+        )
+        self.patch_content1 = PatchContent.objects.create(
+            post=self.advanced_patch,
+            text='This is a test content',
+            order=0,
+            type='textField'
+        )
+    
+    def test_update_patch(self):
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.patch(reverse('update-patch', kwargs={'uuid': self.patch.uuid}), {
+            'title': 'Updated Patch',
+            'version': '1.0.1',
+            'description': 'This is an updated test patch',
+            'state': 'draft'
+        })
+
+        self.assertEqual(response.status_code, 200)
+
+        self.patch.refresh_from_db()
+
+        self.assertEqual(self.patch.title, 'Updated Patch')
+        self.assertEqual(self.patch.version, '1.0.1')
+        self.assertEqual(self.patch.description, 'This is an updated test patch')
+        self.assertEqual(self.patch.state, 'draft')
+    
+    def test_update_patch_unauthenticated(self):
+        response = self.client.patch(reverse('update-patch', kwargs={'uuid': self.patch.uuid}), {
+            'title': 'Updated Patch',
+            'version': '1.0.1',
+            'description': 'This is an updated test patch',
+            'state': 'draft'
+        })
+
+        self.assertEqual(response.status_code, 403)
+
+        self.patch.refresh_from_db()
+
+        self.assertEqual(self.patch.title, 'Test Patch')
+        self.assertEqual(self.patch.version, '1.0.0')
+        self.assertEqual(self.patch.description, 'This is a test patch')
+        self.assertEqual(self.patch.state, 'published')
+    
+    def test_update_patch_invalid_uuid(self):
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.patch(reverse('update-patch', kwargs={'uuid': "invalid-uuid"}), {
+            'title': 'Updated Patch',
+            'version': '1.0.1',
+            'description': 'This is an updated test patch',
+            'state': 'draft'
+        })
+
+        self.assertEqual(response.status_code, 404)
+
+        self.patch.refresh_from_db()
+
+        self.assertEqual(self.patch.title, 'Test Patch')
+        self.assertEqual(self.patch.version, '1.0.0')
+        self.assertEqual(self.patch.description, 'This is a test patch')
+        self.assertEqual(self.patch.state, 'published')
+
+    def test_update_patch_content(self):
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.patch(reverse('update-patch', kwargs={'uuid': self.advanced_patch.uuid}), {
+            'title': 'Updated Patch',
+            'version': '1.0.1',
+            'description': 'This is an updated test patch',
+            'state': 'draft',
+            'content': '[{"id": '+ str(self.patch_content1.id) + ', "text": "Updated content", "order": 0, "type": "textField"}]'
+        })
+
+        self.assertEqual(response.status_code, 200)
+
+        self.advanced_patch.refresh_from_db()
+        self.patch_content1.refresh_from_db()
+
+        self.assertEqual(self.advanced_patch.title, 'Updated Patch')
+        self.assertEqual(self.advanced_patch.version, '1.0.1')
+        self.assertEqual(self.advanced_patch.description, 'This is an updated test patch')
+        self.assertEqual(self.advanced_patch.state, 'draft')
+
+        self.assertEqual(self.patch_content1.text, 'Updated content')
+    
+    def test_update_patch_content_invalid(self):
+        self.client.force_authenticate(user=self.user)
+
+        response = self.client.patch(reverse('update-patch', kwargs={'uuid': self.advanced_patch.uuid}), {
+            'title': 'Updated Patch',
+            'version': '1.0.1',
+            'description': 'This is an updated test patch',
+            'state': 'draft',
+            'content': 'invalid content'
+        })
+
+        self.assertEqual(response.status_code, 400)
+
+        self.advanced_patch.refresh_from_db()
+        self.patch_content1.refresh_from_db()
+
+        self.assertEqual(self.advanced_patch.title, 'Updated Patch')
+        self.assertEqual(self.advanced_patch.version, '1.0.1')
+        self.assertEqual(self.advanced_patch.description, 'This is an updated test patch')
+        self.assertEqual(self.advanced_patch.state, 'draft')
+    
+    def test_update_patch_content_invalid_id(self):
+        self.client.force_authenticate(user=self.user)
+
+        # invalid id
+        response = self.client.patch(reverse('update-patch', kwargs={'uuid': self.patch.uuid}), {
+            'title': 'Updated Patch',
+            'version': '1.0.1',
+            'description': 'This is an updated test patch',
+            'state': 'draft',
+            'content': '[{"id": "999", "text": "Updated content", "order": 0, "type": "textField"}]'
+        })
+
+        self.assertEqual(response.status_code, 400)
+
+        self.patch.refresh_from_db()
+
+        self.assertEqual(self.patch.title, 'Updated Patch')
+        self.assertEqual(self.patch.version, '1.0.1')
+        self.assertEqual(self.patch.description, 'This is an updated test patch')
+        self.assertEqual(self.patch.state, 'draft')
+
+        # no id provided
+        response = self.client.patch(reverse('update-patch', kwargs={'uuid': self.patch.uuid}), {
+            'title': 'Updated Patch',
+            'version': '1.0.1',
+            'description': 'This is an updated test patch',
+            'state': 'draft',
+            'content': '[{"text": "Updated content", "order": 0, "type": "textField"}]'
+        })
+
+        self.assertEqual(response.status_code, 400)
+        self.patch.refresh_from_db()
+
