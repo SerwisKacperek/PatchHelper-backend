@@ -3,6 +3,7 @@ from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
 from uuid import UUID
+import datetime
 
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework import generics, status
@@ -122,6 +123,35 @@ class UserPatchViewSet(generics.ListAPIView):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
+class PatchUpdateView(generics.UpdateAPIView):
+    queryset = Patch.objects.all()
+    serializer_class = PatchSerializer
+    lookup_field = 'uuid'
+
+    def patch(self, request, *args, **kwargs):
+        # validate the given uuid
+        try:
+            uuid = UUID(kwargs['uuid'])
+        except ValueError:
+            raise InvalidUUIDException()
+
+        post = Patch.objects.get(uuid=uuid)
+
+        # check if the user has permission to update the post
+        # TODO: add permission classes
+        if post.user != request.user:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+
+        # check and save the updated data
+        serializer = PatchSerializer(post, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.validated_data['updated'] = datetime.datetime.now()
+            serializer.save()
+            return Response(serializer.data)
+        else:
+            logger.error(f'Validation errors: {serializer.errors}')
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 class PatchCreate(generics.CreateAPIView):
     queryset = Patch.objects.all()
     serializer_class = PatchSerializer
@@ -143,6 +173,11 @@ class PatchCreate(generics.CreateAPIView):
             logger.error(f'Validation errors: {serializer.errors}')
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+class PatchDetail(generics.RetrieveUpdateDestroyAPIView):
+    queryset = Patch.objects.all()
+    serializer_class = PatchSerializer
+    lookup_field = 'uuid'
+
 class PatchContentViewSet(generics.ListAPIView):
     queryset = PatchContent.objects.all()
     serializer_class = PatchContentSerializer
@@ -163,11 +198,6 @@ class PatchContentViewSet(generics.ListAPIView):
         queryset = self.get_queryset()
         serializer = PatchContentSerializer(queryset, many=True)
         return Response(serializer.data)
-
-class PatchDetail(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Patch.objects.all()
-    serializer_class = PatchSerializer
-    lookup_field = 'uuid'
 
 class LandingPageStatViewSet(generics.ListAPIView):
     queryset = LandingPageStat.objects.all()
