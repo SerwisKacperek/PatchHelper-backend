@@ -2,8 +2,11 @@ from django.shortcuts import render, get_list_or_404
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
+from django.core.files.storage import default_storage
+from django.conf import settings
 from uuid import UUID
 import datetime
+import os
 
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework import generics, status
@@ -273,6 +276,23 @@ class ProfileDetail(generics.RetrieveUpdateAPIView):
         profile = self.get_queryset().get(user=request.user)
         serializer = self.get_serializer(profile)
         return Response(serializer.data)
+
+class UploadView(APIView):
+    def post(self, request):
+        if not request.user.is_authenticated:
+            return Response(status=status.HTTP_401_FORBIDDEN)
+        
+        file = request.FILES.get('file')
+
+        if not file:
+            return Response({'detail': 'No file was uploaded'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        default_storage.location = os.path.join(settings.MEDIA_ROOT, 'files')
+        filename = default_storage.save(file.name, file)
+        file_url = os.path.join(os.path.join(settings.MEDIA_URL, "files"), filename)
+        absolute_url = request.build_absolute_uri(file_url)
+
+        return Response({'url': absolute_url}, status=status.HTTP_201_CREATED)
 
 def index(request):
     return render(request, 'index.html')

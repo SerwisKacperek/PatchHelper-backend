@@ -1,10 +1,13 @@
 from django.test import TestCase
 from rest_framework.test import APIClient
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
 from django.contrib.auth.models import User
 from patcher.models import Patch, PatchContent
 from patcher.serializers import PatchSerializer
+
+import os
 
 class TestPatchViewSet(TestCase):
     def setUp(self):
@@ -640,3 +643,51 @@ class TestPatchUpdate(TestCase):
         self.assertEqual(response.status_code, 400)
         self.patch.refresh_from_db()
 
+class TestUploadView(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+
+        self.user = User.objects.create_user(username='testuser', password='12345')
+        self.image_path = os.path.join(os.path.dirname(__file__), 'test_image.png')
+        
+        with open(self.image_path, 'wb') as img:
+            img.write(b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x10\x00\x00\x00\x10\x08\x06\x00\x00\x00\x1f\xf3\xff\xa0\x00\x00\x00\nIDAT\x08\xd7c\xf8\x0f\x00\x01\x05\x01\x01\x00\x00\x00\x00IEND\xaeB`\x82')
+
+    def tearDown(self):
+        if os.path.exists(self.image_path):
+            os.remove(self.image_path)
+
+    def test_upload_image(self):
+        self.client.force_authenticate(user=self.user)
+
+        with open(self.image_path, 'rb') as img:
+            # Create a SimpleUploadedFile object to simulate file upload
+            uploaded_file = SimpleUploadedFile(name='test_image.png', content=img.read(), content_type='image/png')
+
+            # Make the POST request with the file
+            response = self.client.post(reverse('upload'), {'file': uploaded_file}, format='multipart')
+
+            # Assert the upload was successful
+            self.assertEqual(response.status_code, 201)
+            self.assertIn('url', response.data)  # Check if 'location' is in the response
+            self.assertTrue(response.data['url'].endswith('test_image.png'))
+    
+    def test_upload_image_unauthenticated(self):
+        with open(self.image_path, 'rb') as img:
+            # Create a SimpleUploadedFile object to simulate file upload
+            uploaded_file = SimpleUploadedFile(name='test_image.png', content=img.read(), content_type='image/png')
+
+            # Make the POST request with the file
+            response = self.client.post(reverse('upload'), {'file': uploaded_file}, format='multipart')
+
+            # Assert the upload was successful
+            self.assertEqual(response.status_code, 401)
+    
+    def test_upload_image_invalid(self):
+        self.client.force_authenticate(user=self.user)
+
+        # Make the POST request with the file
+        response = self.client.post(reverse('upload'), {'file': 'invalid file'}, format='multipart')
+
+        # Assert the upload was successful
+        self.assertEqual(response.status_code, 400)
