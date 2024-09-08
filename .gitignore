@@ -18,6 +18,7 @@ venv/
 # tests
 htmlcov/
 .coverage
+cov.xml
 pytest.ini
 .pytest_cache/
 

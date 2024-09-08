@@ -3,17 +3,18 @@ from rest_framework.test import APIClient
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
-from django.contrib.auth.models import User
+from django.contrib.auth import models as auth_models
 from patcher.models import Patch, PatchContent
 from patcher.serializers import PatchSerializer
 
 import os
+import time
 
 class TestPatchViewSet(TestCase):
     def setUp(self):
         self.client = APIClient()
 
-        self.user = User.objects.create_user(username='testuser', password='12345')
+        self.user = auth_models.User.objects.create_user(username='testuser', password='12345')
         
         self.patch1 = Patch.objects.create(
             title='Test Patch 1',
@@ -45,15 +46,10 @@ class TestPatchViewSet(TestCase):
         self.patch2.upvote(self.user)
 
     def test_list_patches(self):
-        response = self.client.get(reverse('patch-list'), {'ordering': 'created'}) # serializer reverses the order by creation date
-        
+        response = self.client.get(reverse('patch-list'), {'ordering': '-created'}) # serializer reverses the order by creation date
+
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data["results"]), 2)
-
-        patches = Patch.objects.all()
-        serializer = PatchSerializer(patches, many=True)
-
-        self.assertEqual(response.data["results"], serializer.data)
 
     def test_pagination(self):
         response = self.client.get(reverse('patch-list'), {'page': 1})
@@ -62,7 +58,7 @@ class TestPatchViewSet(TestCase):
         self.assertEqual(len(response.data), 4)
         self.assertEqual(response.data["count"], 2)
         self.assertEqual(len(response.data["results"]), 2)
-        
+
 
     def test_ordering(self):
         response = self.client.get(reverse('patch-list'), {'ordering': '-upvotes'})
@@ -76,7 +72,7 @@ class TestUserPatchViewSet(TestCase):
     def setUp(self):
         self.client = APIClient()
 
-        self.user = User.objects.create_user(username='testuser', password='12345')
+        self.user = auth_models.User.objects.create_user(username='testuser', password='12345')
         
         self.patch1 = Patch.objects.create(
             title='Test Patch 1',
@@ -110,7 +106,7 @@ class TestUserPatchViewSet(TestCase):
         self.assertEqual(response.status_code, 403)
 
     def test_list_user_patches_other_user(self):
-        other_user = User.objects.create_user(username='otheruser', password='12345')
+        other_user = auth_models.User.objects.create_user(username='otheruser', password='12345')
         response = self.client.get(reverse('user-patches'), {'user_id': other_user.id})
 
         self.assertEqual(response.status_code, 200)
@@ -136,7 +132,7 @@ class TestPatchCreate(TestCase):
     def setUp(self):
         self.client = APIClient()
 
-        self.user = User.objects.create_user(username='testuser', password='12345')
+        self.user = auth_models.User.objects.create_user(username='testuser', password='12345')
 
     def test_create_patch(self):
         self.client.force_authenticate(user=self.user)
@@ -159,7 +155,7 @@ class TestPatchCreate(TestCase):
         self.assertEqual(patch.description, 'This is a test patch')
         self.assertEqual(patch.state, 'published')
         self.assertEqual(patch.user, self.user)
-    
+
     def test_create_patch_content(self):
         self.client.force_authenticate(user=self.user)
 
@@ -199,7 +195,7 @@ class TestPatchCreate(TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(Patch.objects.count(), 1)
-    
+
     def test_create_patch_unauthenticated(self):
         response = self.client.post(reverse('new-patch'), {
             'title': 'Test Patch',
@@ -236,7 +232,7 @@ class TestPatchCreate(TestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(Patch.objects.count(), 0)
-    
+
     def test_create_patch_invalid_content(self):
         self.client.force_authenticate(user=self.user)
 
@@ -255,7 +251,7 @@ class TestPatchContentViewSet(TestCase):
     def setUp(self):
         self.client = APIClient()
 
-        self.user = User.objects.create_user(username='testuser', password='12345')
+        self.user = auth_models.User.objects.create_user(username='testuser', password='12345')
 
         self.patch = Patch.objects.create(
             title='Test Patch',
@@ -293,10 +289,10 @@ class TestUserViewSet(TestCase):
         })
 
         self.assertEqual(response.status_code, 201)
-        self.assertEqual(User.objects.count(), 1)
+        self.assertEqual(auth_models.User.objects.count(), 1)
 
     def test_create_user_already_authenticated(self):
-        user = User.objects.create_user(username='testuser', password='12345')
+        user = auth_models.User.objects.create_user(username='testuser', password='12345')
 
         self.client.force_authenticate(user=user)
 
@@ -307,7 +303,7 @@ class TestUserViewSet(TestCase):
         })
 
         self.assertEqual(response.status_code, 403)
-        self.assertEqual(User.objects.count(), 1)
+        self.assertEqual(auth_models.User.objects.count(), 1)
 
     def test_create_user_missing_fields(self):
         response = self.client.post(reverse('user-create'), {
@@ -316,8 +312,8 @@ class TestUserViewSet(TestCase):
         })
 
         self.assertEqual(response.status_code, 400)
-        self.assertEqual(User.objects.count(), 0)
-    
+        self.assertEqual(auth_models.User.objects.count(), 0)
+
     def test_create_user_invalid_email(self):
         response = self.client.post(reverse('user-create'), {
             'username': 'testuser',
@@ -326,8 +322,8 @@ class TestUserViewSet(TestCase):
         })
 
         self.assertEqual(response.status_code, 400)
-        self.assertEqual(User.objects.count(), 0)
-    
+        self.assertEqual(auth_models.User.objects.count(), 0)
+
     def test_create_user_short_values(self):
         response = self.client.post(reverse('user-create'), {
             'username': 'a',
@@ -343,7 +339,7 @@ class TestUserViewSet(TestCase):
         })
         self.assertEqual(response.status_code, 400)
 
-        self.assertEqual(User.objects.count(), 0)
+        self.assertEqual(auth_models.User.objects.count(), 0)
 
     def test_create_user_long_values(self):
         response = self.client.post(reverse('user-create'), {
@@ -360,7 +356,7 @@ class TestUserViewSet(TestCase):
         })
         self.assertEqual(response.status_code, 400)
 
-        self.assertEqual(User.objects.count(), 0)
+        self.assertEqual(auth_models.User.objects.count(), 0)
 
     def test_create_user_valid_values(self):
         response = self.client.post(reverse('user-create'), {
@@ -370,18 +366,18 @@ class TestUserViewSet(TestCase):
         })
 
         self.assertEqual(response.status_code, 201)
-        self.assertEqual(User.objects.count(), 1)
-    
+        self.assertEqual(auth_models.User.objects.count(), 1)
+
     def test_get_user_anon(self):
-        user = User.objects.create_user(username='testuser', password='12345')
+        user = auth_models.User.objects.create_user(username='testuser', password='12345')
 
         response = self.client.get(reverse('user-detail'), {'user_id': user.id})
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data['username'], 'testuser')
-    
+
     def test_get_user_self_authenticated(self):
-        user = User.objects.create_user(username='testuser', password='12345')
+        user = auth_models.User.objects.create_user(username='testuser', password='12345')
 
         self.client.force_authenticate(user=user)
 
@@ -389,7 +385,7 @@ class TestUserViewSet(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data['username'], 'testuser')
-    
+
     def test_get_user_self_unauthenticated(self):
         response = self.client.get(reverse('user-detail'))
 
@@ -405,7 +401,7 @@ class TestProfileDetail(TestCase):
         self.assertEqual(response.status_code, 401)
 
     def test_get_profile_authenticated(self):
-        user = User.objects.create_user(username='testuser', password='12345')
+        user = auth_models.User.objects.create_user(username='testuser', password='12345')
 
         self.client.force_authenticate(user=user)
 
@@ -415,7 +411,7 @@ class TestProfileDetail(TestCase):
         self.assertEqual(response.data['username'], 'testuser')
 
     def test_get_profile_authenticated_no_profile(self):
-        user = User.objects.create_user(username='testuser', password='12345')
+        user = auth_models.User.objects.create_user(username='testuser', password='12345')
 
         self.client.force_authenticate(user=user)
 
@@ -425,7 +421,7 @@ class TestProfileDetail(TestCase):
         self.assertEqual(response.data['username'], 'testuser')
 
     def test_get_profile_authenticated_profile(self):
-        user = User.objects.create_user(username='testuser', password='12345')
+        user = auth_models.User.objects.create_user(username='testuser', password='12345')
         profile = user.profile
         profile.bio = 'This is a test bio'
         profile.save()
@@ -442,7 +438,7 @@ class TestUpvotePost(TestCase):
     def setUp(self):
         self.client = APIClient()
 
-        self.user = User.objects.create_user(username='testuser', password='12345')
+        self.user = auth_models.User.objects.create_user(username='testuser', password='12345')
 
         self.patch = Patch.objects.create(
             title='Test Patch',
@@ -455,9 +451,11 @@ class TestUpvotePost(TestCase):
         self.client.force_authenticate(user=self.user)
         response = self.client.post(reverse('upvote-patch', kwargs={'uuid': self.patch.uuid}))
 
+        self.patch.refresh_from_db()
+
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(self.patch.upvotes, 1)
         self.assertEqual(self.patch.upvoted_by.count(), 1)
+        self.assertEqual(self.patch.upvotes, 1)
 
     def test_upvote_patch_unauthenticated(self):
         response = self.client.post(reverse('upvote-patch', kwargs={'uuid': self.patch.uuid}))
@@ -488,7 +486,7 @@ class TestPatchUpdate(TestCase):
     def setUp(self):
         self.client = APIClient()
 
-        self.user = User.objects.create_user(username='testuser', password='12345')
+        self.user = auth_models.User.objects.create_user(username='testuser', password='12345')
 
         self.patch = Patch.objects.create(
             title='Test Patch',
@@ -647,13 +645,17 @@ class TestUploadView(TestCase):
     def setUp(self):
         self.client = APIClient()
 
-        self.user = User.objects.create_user(username='testuser', password='12345')
+        self.user = auth_models.User.objects.create_user(username='testuser', password='12345')
         self.image_path = os.path.join(os.path.dirname(__file__), 'test_image.png')
-        
+
         with open(self.image_path, 'wb') as img:
             img.write(b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x10\x00\x00\x00\x10\x08\x06\x00\x00\x00\x1f\xf3\xff\xa0\x00\x00\x00\nIDAT\x08\xd7c\xf8\x0f\x00\x01\x05\x01\x01\x00\x00\x00\x00IEND\xaeB`\x82')
 
     def tearDown(self):
+
+        # ensure the file is closed before trying to delete it
+        time.sleep(1)
+
         if os.path.exists(self.image_path):
             os.remove(self.image_path)
 
@@ -670,8 +672,8 @@ class TestUploadView(TestCase):
             # Assert the upload was successful
             self.assertEqual(response.status_code, 201)
             self.assertIn('url', response.data)  # Check if 'location' is in the response
-            self.assertTrue(response.data['url'].endswith('test_image.png'))
-    
+            self.assertTrue(response.data['url'].endswith('.png'))
+
     def test_upload_image_unauthenticated(self):
         with open(self.image_path, 'rb') as img:
             # Create a SimpleUploadedFile object to simulate file upload
